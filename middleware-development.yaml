@@ -1,0 +1,68 @@
+version: "3.7"
+
+volumes:
+  flixscan_postgres_data: {}
+  flixscan_pgadmin_data: {}
+
+networks:
+  rabbitmq_go_net:
+    driver: bridge
+  back-tier:
+    internal: true
+
+services:
+  ###############################################
+  # PSQL
+  ###############################################
+  postgres:
+    container_name: flixscan_postgres_container
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    environment:
+      PGDATA: /data/postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: psql
+    volumes:
+      - flixscan_postgres_data:/data/postgres
+    restart: unless-stopped
+
+  ###############################################
+  # PG-ADMIN
+  ###############################################
+  pgadmin:
+    container_name: flixscan_pgadmin_container
+    image: dpage/pgadmin4:latest
+    ports:
+      - 15432:80
+    extra_hosts:
+      host.docker.internal: host-gateway
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin4@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - flixscan_pgadmin_data:/var/lib/pgadmin/
+    networks:
+      - back-tier
+      - default
+    depends_on:
+      - postgres
+
+  ###############################################
+  # RABITMQ-BROKER
+  ###############################################
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: "rabbitmq"
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+    networks:
+      - rabbitmq_go_net
